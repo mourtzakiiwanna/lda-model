@@ -1,0 +1,3 @@
+RAW_DATA_DIR = "data"
+NUM_TOPICS = 5
+PASSES = 10
