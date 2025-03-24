@@ -4,6 +4,7 @@ from scripts.preprocess import load_and_preprocess_documents, extract_year_from_
 from scripts.lda_modeling import train_lda_model, save_model_and_dictionary, visualize_topics
 import pandas as pd
 import matplotlib.pyplot as plt
+from scripts.sentiment import train_skipgram_model, get_topic_sentiment
 
 def run_for_country(country_name, path_to_speeches):
     print(f"\n=== Processing {country_name} ===")
@@ -67,8 +68,9 @@ def run_for_country(country_name, path_to_speeches):
     plt.tight_layout()
     plt.savefig(os.path.join(out_folder, "visuals", "topic_trends.png"))
     plt.close()
+    print(f"Saved a plot with the topic distribution over years to {os.path.join(out_folder, 'visuals')} with name 'topic_trends.png'")
 
-    # 🧾 Build summary
+    # Build summary
     summary_rows = []
 
     for year, row in df.iterrows():
@@ -85,11 +87,33 @@ def run_for_country(country_name, path_to_speeches):
             "Top Words": word_list
         })
 
-    # 📥 Save summary to Excel
+    # Save summary to Excel
     summary_df = pd.DataFrame(summary_rows)
     excel_path = os.path.join(out_folder, "top_topic_summary.xlsx")
     summary_df.to_excel(excel_path, index=False)
-    print(f"\nSaved Excel summary to {excel_path}")
+    print(f"Saved a summary of the top topic per year to {excel_path}")
+
+    # Sentiment analysis
+    # Step 1: Train Skip-gram model on tokenized docs
+    skipgram_model = train_skipgram_model(docs)
+
+    # Step 2: Sentiment analysis per topic
+    sentiment_data = []
+    for i in range(NUM_TOPICS):
+        topic_words = [word for word, _ in lda_model.show_topic(i, topn=10)]
+        sentiment, score = get_topic_sentiment(topic_words, skipgram_model)
+        sentiment_data.append({
+            "Topic": f"Topic_{i}",
+            "Sentiment": sentiment,
+            "Score": round(score, 3),
+            "Top Words": ", ".join(topic_words)
+        })
+
+    # Step 3: Save to Excel
+    sentiment_df = pd.DataFrame(sentiment_data)
+    sentiment_path = os.path.join(out_folder, "topic_sentiments.xlsx")
+    sentiment_df.to_excel(sentiment_path, index=False)
+    print(f"Saved sentiment analysis per topic to {sentiment_path}")
 
 def main():
     for folder_name in os.listdir(RAW_DATA_DIR):
